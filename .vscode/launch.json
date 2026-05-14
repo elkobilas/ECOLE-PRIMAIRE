@@ -1,0 +1,71 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "pwa-chrome",
+            "request": "launch",
+            "name": "🚀 Application École (Chrome)",
+            "file": "${workspaceFolder}/index.html",
+            "webRoot": "${workspaceFolder}",
+            "userDataDir": false,
+            "runtimeArgs": [
+                "--disable-web-security",
+                "--disable-features=VizDisplayCompositor",
+                "--allow-file-access-from-files"
+            ]
+        },
+        {
+            "type": "pwa-chrome",
+            "request": "launch",
+            "name": "� Page de connexion",
+            "file": "${workspaceFolder}/login.html",
+            "webRoot": "${workspaceFolder}",
+            "userDataDir": false,
+            "runtimeArgs": [
+                "--disable-web-security",
+                "--allow-file-access-from-files"
+            ]
+        },
+        {
+            "type": "pwa-chrome",
+            "request": "launch",
+            "name": "� Page de profil",
+            "file": "${workspaceFolder}/profile.html",
+            "webRoot": "${workspaceFolder}",
+            "userDataDir": false,
+            "runtimeArgs": [
+                "--disable-web-security",
+                "--allow-file-access-from-files"
+            ]
+        },
+        {
+            "type": "pwa-chrome",
+            "request": "launch",
+            "name": "🧪 Test Simple",
+            "file": "${workspaceFolder}/test-simple.html",
+            "webRoot": "${workspaceFolder}",
+            "userDataDir": false,
+            "runtimeArgs": [
+                "--disable-web-security",
+                "--allow-file-access-from-files",
+                "--auto-open-devtools-for-tabs"
+            ]
+        },
+        {
+            "type": "pwa-msedge",
+            "request": "launch",
+            "name": "🚀 Application École (Edge)",
+            "file": "${workspaceFolder}/index.html",
+            "webRoot": "${workspaceFolder}",
+            "userDataDir": false,
+            "runtimeArgs": [
+                "--disable-web-security",
+                "--disable-features=VizDisplayCompositor",
+                "--allow-file-access-from-files"
+            ]
+        }
+    ]
+}

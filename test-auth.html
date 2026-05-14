@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Authentification - Gestion Scolaire</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 800px;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .status.info { background: #d1ecf1; color: #0c5460; }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            margin: 10px;
+            border: none;
+            cursor: pointer;
+        }
+        .btn:hover { background: #0056b3; }
+        .btn.danger { background: #dc3545; }
+        .btn.danger:hover { background: #c82333; }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: left;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test de l'Authentification</h1>
+        
+        <div id="statusDiv" class="status info">
+            <span id="statusText">Vérification en cours...</span>
+        </div>
+        
+        <div class="log" id="logDiv">
+            <div>🔍 Initialisation du test...</div>
+        </div>
+        
+        <div>
+            <button class="btn" onclick="testAuth()">🔍 Tester l'authentification</button>
+            <button class="btn" onclick="simulateLogin()">🔐 Simuler une connexion</button>
+            <button class="btn danger" onclick="clearAuth()">🧹 Nettoyer l'authentification</button>
+            <button class="btn" onclick="goToApp()">🏠 Aller à l'application</button>
+        </div>
+        
+        <div style="margin-top: 30px;">
+            <h3>📋 Informations de diagnostic :</h3>
+            <div id="infoDiv" style="text-align: left; background: #f8f9fa; padding: 15px; border-radius: 8px;">
+                <!-- Informations seront ajoutées ici -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let logDiv = document.getElementById('logDiv');
+        let statusDiv = document.getElementById('statusDiv');
+        let statusText = document.getElementById('statusText');
+        let infoDiv = document.getElementById('infoDiv');
+
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+
+        function updateStatus(message, type = 'info') {
+            statusText.textContent = message;
+            statusDiv.className = `status ${type}`;
+        }
+
+        function updateInfo() {
+            const token = localStorage.getItem('authToken');
+            const user = localStorage.getItem('currentUser');
+            const currentPage = window.location.pathname;
+            
+            infoDiv.innerHTML = `
+                <strong>Page actuelle :</strong> ${currentPage}<br>
+                <strong>Token présent :</strong> ${token ? '✅ Oui' : '❌ Non'}<br>
+                <strong>Utilisateur présent :</strong> ${user ? '✅ Oui' : '❌ Non'}<br>
+                <strong>Protocole :</strong> ${window.location.protocol}<br>
+                <strong>URL complète :</strong> ${window.location.href}<br>
+                ${token ? `<strong>Token valide :</strong> ${isTokenValid(token) ? '✅ Oui' : '❌ Non'}<br>` : ''}
+                ${user ? `<strong>Utilisateur :</strong> ${JSON.parse(user).firstName} ${JSON.parse(user).lastName}<br>` : ''}
+            `;
+        }
+
+        function isTokenValid(token) {
+            try {
+                const tokenData = JSON.parse(atob(token));
+                return tokenData.exp > Date.now();
+            } catch (error) {
+                return false;
+            }
+        }
+
+        function testAuth() {
+            log('🔍 Test de l\'authentification...');
+            updateInfo();
+            
+            const token = localStorage.getItem('authToken');
+            const user = localStorage.getItem('currentUser');
+            
+            if (token && user) {
+                try {
+                    const userData = JSON.parse(user);
+                    const tokenData = JSON.parse(atob(token));
+                    
+                    if (tokenData.exp > Date.now()) {
+                        updateStatus('✅ Authentification valide', 'success');
+                        log(`✅ Utilisateur authentifié: ${userData.firstName} ${userData.lastName}`);
+                        log(`✅ Token valide jusqu'au: ${new Date(tokenData.exp).toLocaleString()}`);
+                    } else {
+                        updateStatus('❌ Token expiré', 'error');
+                        log('❌ Token expiré');
+                    }
+                } catch (error) {
+                    updateStatus('❌ Erreur de parsing', 'error');
+                    log(`❌ Erreur: ${error.message}`);
+                }
+            } else {
+                updateStatus('❌ Pas d\'authentification', 'error');
+                log('❌ Aucun token ou utilisateur trouvé');
+            }
+        }
+
+        function simulateLogin() {
+            log('🔐 Simulation d\'une connexion...');
+            
+            const testUser = {
+                id: 'test',
+                firstName: 'Test',
+                lastName: 'Utilisateur',
+                username: 'test',
+                role: 'admin',
+                email: 'test@example.com'
+            };
+            
+            const tokenData = {
+                userId: testUser.id,
+                username: testUser.username,
+                role: testUser.role,
+                exp: Date.now() + (24 * 60 * 60 * 1000)
+            };
+            
+            localStorage.setItem('authToken', btoa(JSON.stringify(tokenData)));
+            localStorage.setItem('currentUser', JSON.stringify(testUser));
+            
+            updateStatus('✅ Connexion simulée', 'success');
+            log('✅ Token et utilisateur créés');
+            updateInfo();
+        }
+
+        function clearAuth() {
+            log('🧹 Nettoyage de l\'authentification...');
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('currentUser');
+            updateStatus('✅ Authentification nettoyée', 'info');
+            log('✅ Token et utilisateur supprimés');
+            updateInfo();
+        }
+
+        function goToApp() {
+            log('🏠 Redirection vers l\'application...');
+            window.location.href = 'index.html';
+        }
+
+        // Initialisation
+        log('🚀 Test d\'authentification initialisé');
+        updateInfo();
+        testAuth();
+    </script>
+</body>
+</html>
+

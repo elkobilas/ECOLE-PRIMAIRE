@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Application - Gestion Scolaire</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 600px;
+        }
+        .success {
+            color: #28a745;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        .info {
+            color: #6c757d;
+            margin: 20px 0;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            margin: 10px;
+            transition: background 0.3s;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .status.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .status.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test de l'Application</h1>
+        
+        <div class="success">✅ Page de test chargée avec succès !</div>
+        
+        <div class="info">
+            <p><strong>Status du serveur :</strong> <span id="serverStatus">Vérification...</span></p>
+            <p><strong>Protocole :</strong> <span id="protocol"></span></p>
+            <p><strong>URL actuelle :</strong> <span id="currentUrl"></span></p>
+        </div>
+        
+        <div id="statusDiv" class="status" style="display: none;">
+            <span id="statusText"></span>
+        </div>
+        
+        <div>
+            <a href="index.html" class="btn">🏠 Aller à l'application principale</a>
+            <a href="login.html" class="btn">🔐 Page de connexion</a>
+            <a href="profile.html" class="btn">👤 Page de profil</a>
+        </div>
+        
+        <div class="info">
+            <h3>📋 Instructions :</h3>
+            <ol style="text-align: left; display: inline-block;">
+                <li>Si vous voyez cette page, le serveur fonctionne</li>
+                <li>Cliquez sur "Aller à l'application principale"</li>
+                <li>Si l'application ne se charge pas, vérifiez la console (F12)</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        // Afficher les informations de diagnostic
+        document.getElementById('protocol').textContent = window.location.protocol;
+        document.getElementById('currentUrl').textContent = window.location.href;
+        
+        // Vérifier le statut
+        const statusDiv = document.getElementById('statusDiv');
+        const statusText = document.getElementById('statusText');
+        const serverStatus = document.getElementById('serverStatus');
+        
+        if (window.location.protocol === 'file:') {
+            statusDiv.className = 'status error';
+            statusDiv.style.display = 'block';
+            statusText.textContent = '❌ ERREUR: L\'application doit être lancée via un serveur HTTP (http://localhost:8080)';
+            serverStatus.textContent = '❌ Serveur requis';
+        } else if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+            statusDiv.className = 'status success';
+            statusDiv.style.display = 'block';
+            statusText.textContent = '✅ PARFAIT: L\'application est correctement servie par un serveur HTTP';
+            serverStatus.textContent = '✅ Serveur actif';
+        }
+        
+        // Test de chargement des ressources
+        console.log('🧪 Test de l\'application de gestion scolaire');
+        console.log('📍 URL:', window.location.href);
+        console.log('🌐 Protocole:', window.location.protocol);
+        console.log('📱 User Agent:', navigator.userAgent);
+        
+        // Vérifier si les fichiers principaux existent
+        fetch('index.html')
+            .then(response => {
+                if (response.ok) {
+                    console.log('✅ index.html accessible');
+                } else {
+                    console.log('❌ index.html non accessible');
+                }
+            })
+            .catch(error => {
+                console.log('❌ Erreur lors du test:', error);
+            });
+    </script>
+</body>
+</html>
+
