@@ -59,6 +59,11 @@
                         </a>
                     </li>
                     <li class="nav-item" role="none">
+                        <a class="nav-link" href="#" data-page="agenda" role="menuitem">
+                            <i class="fas fa-calendar-alt me-1" aria-hidden="true"></i>Agenda
+                        </a>
+                    </li>
+                    <li class="nav-item" role="none">
                         <a class="nav-link" href="#" data-page="reports" role="menuitem">
                             <i class="fas fa-chart-bar me-1" aria-hidden="true"></i>Rapports
                         </a>
@@ -164,8 +169,26 @@
         </div>
     </main>
 
+    <!-- Modal de Détails Universel -->
+    <div class="modal fade" id="detailsModal" tabindex="-1" aria-labelledby="detailsModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="detailsModalTitle">Détails</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+                </div>
+                <div class="modal-body text-start" id="detailsModalBody">
+                    <!-- Rempli dynamiquement -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Notifications -->
-    <div id="notificationContainer" class="position-fixed top-0 end-0 p-3" style="z-index: 1050;" role="alert"
+    <div id="notificationContainer" class="position-fixed top-0 end-0 p-3" style="z-index: 9999;" role="alert"
         aria-live="assertive" aria-label="Notifications"></div>
 
     <!-- Scripts -->
@@ -180,6 +203,7 @@
     <script src="js/teachers.js"></script>
     <script src="js/classes.js"></script>
     <script src="js/grades.js"></script>
+    <script src="js/agenda.js"></script>
     <script src="js/reports.js"></script>
     <script src="js/profile.js"></script>
     <script src="js/mock-data.js"></script>

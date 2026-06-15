@@ -370,6 +370,10 @@ class GradesModule {
         const ctx = document.getElementById('gradesDistributionChart');
         if (!ctx) return;
 
+        if (this.distributionChartInstance) {
+            this.distributionChartInstance.destroy();
+        }
+
         const ranges = [
             { label: '0-5', min: 0, max: 5, count: 0 },
             { label: '6-10', min: 6, max: 10, count: 0 },
@@ -382,7 +386,7 @@ class GradesModule {
             if (range) range.count++;
         });
 
-        new Chart(ctx, {
+        this.distributionChartInstance = new Chart(ctx, {
             type: 'bar',
             data: {
                 labels: ranges.map(r => r.label),
@@ -409,6 +413,10 @@ class GradesModule {
         const ctx = document.getElementById('subjectAveragesChart');
         if (!ctx) return;
 
+        if (this.subjectAveragesChartInstance) {
+            this.subjectAveragesChartInstance.destroy();
+        }
+
         const subjectData = {};
         this.app.grades.forEach(grade => {
             if (!subjectData[grade.subject]) {
@@ -423,7 +431,7 @@ class GradesModule {
             (subjectData[s].total / subjectData[s].count).toFixed(2)
         );
 
-        new Chart(ctx, {
+        this.subjectAveragesChartInstance = new Chart(ctx, {
             type: 'doughnut',
             data: {
                 labels: subjects,
@@ -497,10 +505,12 @@ class GradesModule {
             const index = this.app.grades.findIndex(g => g.id === this.currentGradeId);
             if (index !== -1) {
                 this.app.grades[index] = gradeData;
+                this.app.logActivity(`Modification d'une note pour ${gradeData.studentName}`, `${gradeData.subject}: ${gradeData.grade}/20`, 'edit');
             }
         } else {
             // Ajout
             this.app.grades.push(gradeData);
+            this.app.logActivity(`Ajout d'une note pour ${gradeData.studentName}`, `${gradeData.subject}: ${gradeData.grade}/20`, 'add');
         }
 
         this.app.saveDataToStorage();
@@ -516,8 +526,12 @@ class GradesModule {
 
     deleteGrade(gradeId) {
         if (confirm('Êtes-vous sûr de vouloir supprimer cette note ?')) {
+            const grade = this.app.grades.find(g => g.id === gradeId);
+            const studentName = grade ? grade.studentName : 'Inconnu';
+            const subject = grade ? grade.subject : '';
             this.app.grades = this.app.grades.filter(g => g.id !== gradeId);
             this.app.saveDataToStorage();
+            this.app.logActivity(`Suppression de la note de ${studentName}`, `${subject}`, 'delete');
             this.app.showNotification('Note supprimée avec succès', 'success');
             this.loadGradesData();
         }
@@ -529,15 +543,50 @@ class GradesModule {
 
         const student = this.app.students.find(s => s.id === grade.studentId);
         const teacher = this.app.teachers.find(t => t.id === grade.teacherId);
+        const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Non renseigné';
+        const studentName = student ? `${student.firstName} ${student.lastName}` : 'Inconnu';
+        const dateFmt = new Date(grade.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 
-        alert(`Détails de la note:\n\n` +
-            `Élève: ${student ? `${student.firstName} ${student.lastName}` : 'Inconnu'}\n` +
-            `Matière: ${grade.subject}\n` +
-            `Note: ${grade.grade}/20\n` +
-            `Coefficient: ${grade.coefficient}\n` +
-            `Date: ${new Date(grade.date).toLocaleDateString('fr-FR')}\n` +
-            `Enseignant: ${teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Non renseigné'}\n` +
-            `Commentaire: ${grade.comment || 'Aucun commentaire'}`);
+        const html = `
+            <div class="text-center mb-4">
+                <div class="detail-avatar" style="background: var(--gradient-danger);">
+                    <i class="fas fa-file-signature"></i>
+                </div>
+                <h4 class="fw-bold">${grade.grade} / 20</h4>
+                <span class="badge bg-primary">${grade.subject}</span>
+            </div>
+
+            <div class="detail-field">
+                <div class="detail-label"><i class="fas fa-user-graduate me-1"></i>Élève</div>
+                <div class="detail-value">${studentName}</div>
+            </div>
+
+            <div class="detail-field">
+                <div class="detail-label"><i class="fas fa-weight me-1"></i>Coefficient</div>
+                <div class="detail-value">x${grade.coefficient || 1}</div>
+            </div>
+
+            <div class="detail-field">
+                <div class="detail-label"><i class="fas fa-calendar-alt me-1"></i>Date d'évaluation</div>
+                <div class="detail-value">${dateFmt}</div>
+            </div>
+
+            <div class="detail-field">
+                <div class="detail-label"><i class="fas fa-chalkboard-teacher me-1"></i>Saisie par</div>
+                <div class="detail-value">${teacherName}</div>
+            </div>
+
+            <div class="detail-field">
+                <div class="detail-label"><i class="fas fa-comment-dots me-1"></i>Commentaire</div>
+                <div class="detail-value">${grade.comment || 'Aucun commentaire.'}</div>
+            </div>
+        `;
+
+        document.getElementById('detailsModalTitle').textContent = "Détails de la Note";
+        document.getElementById('detailsModalBody').innerHTML = html;
+
+        const modal = new bootstrap.Modal(document.getElementById('detailsModal'));
+        modal.show();
     }
 
     exportGrades() {

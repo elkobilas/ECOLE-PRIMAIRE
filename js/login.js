@@ -1,10 +1,21 @@
 // Gestion de la page de connexion
 class LoginManager {
     constructor() {
+        this.failedAttempts = 0;
+        this.lockoutUntil = null;
+        this.maxAttempts = 5;
+        this.lockoutDuration = 2 * 60 * 1000; // 2 minutes
         this.init();
     }
 
     init() {
+        // Restaurer l'état de verrouillage depuis sessionStorage
+        const savedLockout = sessionStorage.getItem('loginLockout');
+        if (savedLockout) {
+            const lockoutData = JSON.parse(savedLockout);
+            this.failedAttempts = lockoutData.attempts || 0;
+            this.lockoutUntil = lockoutData.until ? new Date(lockoutData.until) : null;
+        }
         this.bindEvents();
         this.checkExistingSession();
     }
@@ -63,7 +74,22 @@ class LoginManager {
     }
 
     handleLogin() {
-        const username = document.getElementById('username').value;
+        // === PROTECTION ANTI-BRUTE FORCE ===
+        if (this.lockoutUntil && new Date() < this.lockoutUntil) {
+            const remainingSeconds = Math.ceil((this.lockoutUntil - new Date()) / 1000);
+            this.showMessage(`🔒 Compte verrouillé. Réessayez dans ${remainingSeconds} secondes.`, 'danger');
+            return;
+        }
+
+        // Réinitialiser si le verrouillage a expiré
+        if (this.lockoutUntil && new Date() >= this.lockoutUntil) {
+            this.failedAttempts = 0;
+            this.lockoutUntil = null;
+            sessionStorage.removeItem('loginLockout');
+        }
+
+        // === SANITISATION DES ENTRÉES ===
+        const username = document.getElementById('username').value.trim();
         const password = document.getElementById('password').value;
         
         if (!username || !password) {
@@ -71,35 +97,93 @@ class LoginManager {
             return;
         }
 
+        if (username.length < 3 || username.length > 50) {
+            this.showMessage('Le nom d\'utilisateur doit contenir entre 3 et 50 caractères', 'danger');
+            return;
+        }
+
         // Vérifier les identifiants
         const users = JSON.parse(localStorage.getItem('users')) || this.getDefaultUsers();
-        const user = users.find(u => u.username === username && u.password === password);
+        const registeredUsers = JSON.parse(localStorage.getItem('registeredUsers')) || [];
+        const allUsers = [...users, ...registeredUsers];
+        const user = allUsers.find(u => 
+            (u.username === username || u.email === username) && 
+            u.password === password
+        );
         
         if (user && user.isActive) {
-            // Créer un token simple
+            // Réinitialiser les tentatives
+            this.failedAttempts = 0;
+            this.lockoutUntil = null;
+            sessionStorage.removeItem('loginLockout');
+
+            // Créer un token sécurisé
             const token = this.generateToken(user);
+            
+            // Ne pas stocker le mot de passe dans currentUser
+            const safeUser = { ...user };
+            delete safeUser.password;
             
             // Sauvegarder l'authentification
             localStorage.setItem('authToken', token);
-            localStorage.setItem('currentUser', JSON.stringify(user));
+            localStorage.setItem('currentUser', JSON.stringify(safeUser));
             
-            this.showMessage('Connexion réussie ! Redirection...', 'success');
+            // Logger la connexion réussie
+            this.logLoginAttempt(username, true);
+            
+            this.showMessage('✅ Connexion réussie ! Redirection...', 'success');
             
             // Rediriger vers l'application
             setTimeout(() => {
                 window.location.href = 'index.html';
             }, 1000);
         } else {
-            this.showMessage('Identifiants incorrects ou compte inactif', 'danger');
+            // Incrémenter les tentatives échouées
+            this.failedAttempts++;
+            this.logLoginAttempt(username, false);
+            
+            const remaining = this.maxAttempts - this.failedAttempts;
+            
+            if (this.failedAttempts >= this.maxAttempts) {
+                // Verrouiller le compte
+                this.lockoutUntil = new Date(Date.now() + this.lockoutDuration);
+                sessionStorage.setItem('loginLockout', JSON.stringify({
+                    attempts: this.failedAttempts,
+                    until: this.lockoutUntil.toISOString()
+                }));
+                this.showMessage(`🔒 Trop de tentatives échouées. Compte verrouillé pour 2 minutes.`, 'danger');
+            } else {
+                sessionStorage.setItem('loginLockout', JSON.stringify({
+                    attempts: this.failedAttempts,
+                    until: null
+                }));
+                this.showMessage(`❌ Identifiants incorrects. ${remaining} tentative(s) restante(s).`, 'danger');
+            }
         }
     }
 
+    logLoginAttempt(username, success) {
+        const loginLog = JSON.parse(localStorage.getItem('loginLog')) || [];
+        loginLog.unshift({
+            username: username,
+            success: success,
+            timestamp: new Date().toISOString(),
+            userAgent: navigator.userAgent.substring(0, 100)
+        });
+        // Garder les 50 dernières entrées
+        if (loginLog.length > 50) loginLog.pop();
+        localStorage.setItem('loginLog', JSON.stringify(loginLog));
+    }
+
     generateToken(user) {
+        // Token amélioré avec plus d'informations de sécurité
         const tokenData = {
             userId: user.id,
             username: user.username,
             role: user.role,
-            exp: Date.now() + (24 * 60 * 60 * 1000) // 24 heures
+            iat: Date.now(), // issued at
+            exp: Date.now() + (8 * 60 * 60 * 1000), // 8 heures (réduit de 24h)
+            nonce: Math.random().toString(36).substring(2, 15) // anti-replay
         };
         
         return btoa(JSON.stringify(tokenData));

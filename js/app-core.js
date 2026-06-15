@@ -25,6 +25,13 @@ class SchoolManagementApp {
         this.grades = JSON.parse(localStorage.getItem('grades')) || this.getDefaultGrades();
         this.subjects = JSON.parse(localStorage.getItem('subjects')) || this.getDefaultSubjects();
         this.users = JSON.parse(localStorage.getItem('users')) || this.getDefaultUsers();
+        
+        // S'assurer que le nouvel administrateur est bien ajouté même si le cache existe
+        if (!this.users.find(u => u.email === 'kiemamahama@gmail.com')) {
+            const adminUser = this.getDefaultUsers().find(u => u.email === 'kiemamahama@gmail.com');
+            if (adminUser) this.users.push(adminUser);
+        }
+        
         this.saveDataToStorage();
     }
 
@@ -77,6 +84,7 @@ class SchoolManagementApp {
     getDefaultUsers() {
         return [
             { id: 'admin', username: 'admin', password: 'admin123', role: 'admin', firstName: 'Admin', lastName: 'Système', email: 'admin@ecole.fr', isActive: true },
+            { id: 'admin2', username: 'kiema', password: 'password123', role: 'admin', firstName: 'Mahama', lastName: 'Kiema', email: 'kiemamahama@gmail.com', isActive: true },
             { id: 'enseignant', username: 'enseignant', password: 'enseignant123', role: 'teacher', firstName: 'Enseignant', lastName: 'Test', email: 'enseignant@ecole.fr', isActive: true },
             { id: 'direction', username: 'direction', password: 'direction123', role: 'director', firstName: 'Direction', lastName: 'École', email: 'direction@ecole.fr', isActive: true }
         ];

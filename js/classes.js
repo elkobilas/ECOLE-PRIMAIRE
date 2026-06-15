@@ -335,10 +335,12 @@ class ClassesModule {
             const index = this.app.classes.findIndex(c => c.id === this.currentClassId);
             if (index !== -1) {
                 this.app.classes[index] = classData;
+                this.app.logActivity(`Modification de la classe ${classData.name}`, `Niveau: ${classData.level}`, 'edit');
             }
         } else {
             // Ajout
             this.app.classes.push(classData);
+            this.app.logActivity(`Création de la classe ${classData.name}`, `Niveau: ${classData.level}`, 'add');
         }
 
         this.app.saveDataToStorage();
@@ -354,6 +356,7 @@ class ClassesModule {
 
     deleteClass(classId) {
         const cls = this.app.classes.find(c => c.id === classId);
+        if (!cls) return;
         const studentsInClass = this.app.students.filter(s => s.class === cls.name).length;
 
         if (studentsInClass > 0) {
@@ -368,6 +371,7 @@ class ClassesModule {
 
         this.app.classes = this.app.classes.filter(c => c.id !== classId);
         this.app.saveDataToStorage();
+        this.app.logActivity(`Suppression de la classe ${cls.name}`, `Contenait ${studentsInClass} élève(s)`, 'delete');
         this.app.showNotification('Classe supprimée avec succès', 'success');
         this.loadClassesData();
     }
@@ -379,14 +383,43 @@ class ClassesModule {
         const studentsInClass = this.app.students.filter(s => s.class === cls.name);
         const teacher = this.app.teachers.find(t => t.id === cls.teacherId);
         const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Non assigné';
+        const occupancy = cls.capacity > 0 ? ((studentsInClass.length / cls.capacity) * 100).toFixed(1) : 0;
 
-        alert(`Détails de la classe ${cls.name}:\n\n` +
-            `Niveau: ${cls.level}\n` +
-            `Enseignant: ${teacherName}\n` +
-            `Effectif: ${studentsInClass.length} / ${cls.capacity}\n` +
-            `Salle: ${cls.room || 'Non définie'}\n` +
-            `Horaire: ${cls.schedule || 'Non défini'}\n` +
-            `Taux d'occupation: ${cls.capacity > 0 ? ((studentsInClass.length / cls.capacity) * 100).toFixed(1) : 0}%`);
+        const html = `
+            <div class="text-center mb-4">
+                <div class="detail-avatar" style="background: var(--gradient-warning);">
+                    <i class="fas fa-users-class"></i>
+                </div>
+                <h4 class="fw-bold">${cls.name}</h4>
+                <span class="badge bg-primary">Niveau ${cls.level}</span>
+            </div>
+
+            <div class="detail-field">
+                <div class="detail-label"><i class="fas fa-chalkboard-teacher me-1"></i>Enseignant principal</div>
+                <div class="detail-value">${teacherName}</div>
+            </div>
+
+            <div class="detail-field">
+                <div class="detail-label"><i class="fas fa-users me-1"></i>Effectif</div>
+                <div class="detail-value">${studentsInClass.length} / ${cls.capacity} élèves (${occupancy}%)</div>
+            </div>
+
+            <div class="detail-field">
+                <div class="detail-label"><i class="fas fa-door-open me-1"></i>Salle de classe</div>
+                <div class="detail-value">${cls.room || 'Non définie'}</div>
+            </div>
+
+            <div class="detail-field">
+                <div class="detail-label"><i class="fas fa-clock me-1"></i>Horaire d'étude</div>
+                <div class="detail-value">${cls.schedule || 'Non défini'}</div>
+            </div>
+        `;
+
+        document.getElementById('detailsModalTitle').textContent = "Détails de la Classe";
+        document.getElementById('detailsModalBody').innerHTML = html;
+
+        const modal = new bootstrap.Modal(document.getElementById('detailsModal'));
+        modal.show();
     }
 
     viewStudents(classId) {
@@ -396,15 +429,40 @@ class ClassesModule {
         const studentsInClass = this.app.students.filter(s => s.class === cls.name);
 
         if (studentsInClass.length === 0) {
-            alert(`Aucun élève dans la classe ${cls.name}`);
+            this.app.showNotification(`Aucun élève dans la classe ${cls.name}`, 'warning');
             return;
         }
 
-        const studentsList = studentsInClass.map((s, i) =>
-            `${i + 1}. ${s.firstName} ${s.lastName}`
-        ).join('\n');
+        const listHTML = studentsInClass.map((s, i) => `
+            <div class="d-flex align-items-center justify-content-between border-bottom py-2">
+                <div class="text-start">
+                    <span class="fw-bold text-muted me-2">${i + 1}.</span>
+                    <span class="fw-bold text-dark">${s.lastName} ${s.firstName}</span>
+                </div>
+                <span class="badge bg-${s.isActive !== false ? 'success' : 'danger'} text-xs">
+                    ${s.isActive !== false ? 'Actif' : 'Inactif'}
+                </span>
+            </div>
+        `).join('');
 
-        alert(`Élèves de la classe ${cls.name} (${studentsInClass.length}):\n\n${studentsList}`);
+        const html = `
+            <div class="text-center mb-4">
+                <div class="detail-avatar" style="background: var(--gradient-primary);">
+                    <i class="fas fa-user-graduate"></i>
+                </div>
+                <h4 class="fw-bold">Élèves - ${cls.name}</h4>
+                <span class="badge bg-success">${studentsInClass.length} élèves inscrits</span>
+            </div>
+            <div style="max-height: 300px; overflow-y: auto; padding-right: 5px;">
+                ${listHTML}
+            </div>
+        `;
+
+        document.getElementById('detailsModalTitle').textContent = `Élèves de la classe ${cls.name}`;
+        document.getElementById('detailsModalBody').innerHTML = html;
+
+        const modal = new bootstrap.Modal(document.getElementById('detailsModal'));
+        modal.show();
     }
 
     exportClasses() {

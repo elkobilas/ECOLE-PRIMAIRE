@@ -60,9 +60,16 @@ class AuthManager {
     }
 
     login(username, password) {
-        // Vérifier les identifiants
-        const users = JSON.parse(localStorage.getItem('users')) || [];
-        const user = users.find(u => u.username === username && u.password === password);
+        // Récupérer les utilisateurs par défaut et ceux inscrits
+        const defaultUsers = JSON.parse(localStorage.getItem('users')) || [];
+        const registeredUsers = JSON.parse(localStorage.getItem('registeredUsers')) || [];
+        const allUsers = [...defaultUsers, ...registeredUsers];
+        
+        // Trouver l'utilisateur par nom d'utilisateur OU email
+        const user = allUsers.find(u => 
+            (u.username === username || u.email === username) && 
+            u.password === password
+        );
         
         if (user && user.isActive) {
             // Créer un token simple
@@ -98,12 +105,14 @@ class AuthManager {
     }
 
     generateToken(user) {
-        // Token simple basé sur l'utilisateur et la date
+        // Token amélioré avec plus d'informations de sécurité
         const tokenData = {
             userId: user.id,
             username: user.username,
             role: user.role,
-            exp: Date.now() + (24 * 60 * 60 * 1000) // 24 heures
+            iat: Date.now(), // issued at
+            exp: Date.now() + (8 * 60 * 60 * 1000), // 8 heures (réduit de 24h)
+            nonce: Math.random().toString(36).substring(2, 15) // anti-replay
         };
         
         return btoa(JSON.stringify(tokenData));
@@ -122,8 +131,20 @@ class AuthManager {
         if (!token) return false;
         
         const tokenData = this.parseToken(token);
-        if (!tokenData || tokenData.exp <= Date.now()) {
+        if (!tokenData) {
+            this.logout('Token invalide');
+            return false;
+        }
+        
+        // Vérifier l'expiration
+        if (tokenData.exp <= Date.now()) {
             this.logout('Session expirée');
+            return false;
+        }
+        
+        // Vérifier que le token contient les champs requis
+        if (!tokenData.userId || !tokenData.username || !tokenData.role) {
+            this.logout('Token corrompu');
             return false;
         }
         
@@ -141,8 +162,4 @@ class AuthManager {
     }
 }
 
-// Initialiser le gestionnaire d'authentification
-let authManager;
-document.addEventListener('DOMContentLoaded', () => {
-    authManager = new AuthManager();
-});
+// Note: L'instance authManager est maintenant gérée par SchoolManagementApp dans app.js

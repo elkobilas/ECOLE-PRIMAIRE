@@ -19,8 +19,10 @@ class SchoolManagementApp {
         this.teachersModule = new TeachersModule(this);
         this.classesModule = new ClassesModule(this);
         this.gradesModule = new GradesModule(this);
+        this.agendaModule = new AgendaModule(this);
         this.reportsModule = new ReportsModule(this);
         this.profileModule = new ProfileModule(this);
+        this.authManager = new AuthManager();
 
         this.init();
     }
@@ -28,8 +30,11 @@ class SchoolManagementApp {
     init() {
         this.loadDataFromStorage();
         this.bindEvents();
+        
+        // La vérification d'authentification est gérée par authManager.init()
+        // qui est appelé dans le constructeur via this.authManager = new AuthManager()
+        
         this.loadPage('dashboard');
-        this.showNotification('Application chargée avec succès', 'success');
     }
 
     loadDataFromStorage() {
@@ -39,6 +44,13 @@ class SchoolManagementApp {
         this.grades = JSON.parse(localStorage.getItem('grades')) || this.getDefaultGrades();
         this.subjects = JSON.parse(localStorage.getItem('subjects')) || this.getDefaultSubjects();
         this.users = JSON.parse(localStorage.getItem('users')) || this.getDefaultUsers();
+        
+        // S'assurer que le nouvel administrateur est bien ajouté même si le cache existe
+        if (!this.users.find(u => u.email === 'kiemamahama@gmail.com')) {
+            const adminUser = this.getDefaultUsers().find(u => u.email === 'kiemamahama@gmail.com');
+            if (adminUser) this.users.push(adminUser);
+        }
+        
         this.saveDataToStorage();
     }
 
@@ -91,6 +103,7 @@ class SchoolManagementApp {
     getDefaultUsers() {
         return [
             { id: 'admin', username: 'admin', password: 'admin123', role: 'admin', firstName: 'Admin', lastName: 'Système', email: 'admin@ecole.fr', isActive: true },
+            { id: 'admin2', username: 'kiema', password: 'password123', role: 'admin', firstName: 'Mahama', lastName: 'Kiema', email: 'kiemamahama@gmail.com', isActive: true },
             { id: 'enseignant', username: 'enseignant', password: 'enseignant123', role: 'teacher', firstName: 'Enseignant', lastName: 'Test', email: 'enseignant@ecole.fr', isActive: true },
             { id: 'direction', username: 'direction', password: 'direction123', role: 'director', firstName: 'Direction', lastName: 'École', email: 'direction@ecole.fr', isActive: true }
         ];
@@ -170,7 +183,7 @@ class SchoolManagementApp {
         switch (page) {
             case 'dashboard':
                 content.innerHTML = this.dashboardModule.getDashboardHTML();
-                setTimeout(() => this.dashboardModule.loadDashboardData(), 100);
+                this.dashboardModule.loadDashboardData();
                 break;
             case 'students':
                 content.innerHTML = this.studentsModule.getStudentsHTML();
@@ -187,6 +200,10 @@ class SchoolManagementApp {
             case 'grades':
                 content.innerHTML = this.gradesModule.getGradesHTML();
                 setTimeout(() => this.gradesModule.loadGradesData(), 100);
+                break;
+            case 'agenda':
+                content.innerHTML = this.agendaModule.getAgendaHTML();
+                setTimeout(() => this.agendaModule.loadAgendaData(), 100);
                 break;
             case 'reports':
                 content.innerHTML = this.reportsModule.getReportsHTML();
@@ -222,15 +239,36 @@ class SchoolManagementApp {
             isActive: document.getElementById('studentActive').checked
         };
 
+        // === VALIDATION DATE DE NAISSANCE ÉLÈVE ===
+        if (!studentData.dateOfBirth) {
+            this.showNotification('⚠️ La date de naissance est obligatoire', 'warning');
+            return;
+        }
+        const studentBirthDate = new Date(studentData.dateOfBirth);
+        const today = new Date();
+        if (studentBirthDate >= today) {
+            this.showNotification('⚠️ La date de naissance ne peut pas être dans le futur', 'warning');
+            return;
+        }
+        const studentAge = today.getFullYear() - studentBirthDate.getFullYear() - 
+            ((today.getMonth() < studentBirthDate.getMonth() || 
+             (today.getMonth() === studentBirthDate.getMonth() && today.getDate() < studentBirthDate.getDate())) ? 1 : 0);
+        if (studentAge < 2 || studentAge > 15) {
+            this.showNotification(`⚠️ L'âge de l'élève (${studentAge} ans) n'est pas valide. L'élève doit avoir entre 2 et 15 ans.`, 'warning');
+            return;
+        }
+
         if (this.currentStudentId) {
             // Modification
             const index = this.students.findIndex(s => s.id === this.currentStudentId);
             if (index !== -1) {
                 this.students[index] = studentData;
+                this.logActivity(`Modification de l'élève ${studentData.firstName} ${studentData.lastName}`, `Classe: ${studentData.class || 'Aucune'}`, 'edit');
             }
         } else {
             // Ajout
             this.students.push(studentData);
+            this.logActivity(`Inscription de l'élève ${studentData.firstName} ${studentData.lastName}`, `Classe: ${studentData.class || 'Aucune'}`, 'add');
         }
 
         this.saveDataToStorage();
@@ -272,8 +310,11 @@ class SchoolManagementApp {
 
     deleteStudent(studentId) {
         if (confirm('Êtes-vous sûr de vouloir supprimer cet élève ?')) {
+            const student = this.students.find(s => s.id === studentId);
+            const studentName = student ? `${student.firstName} ${student.lastName}` : `ID ${studentId}`;
             this.students = this.students.filter(s => s.id !== studentId);
             this.saveDataToStorage();
+            this.logActivity(`Suppression de l'élève ${studentName}`, '', 'delete');
             this.showNotification('Élève supprimé avec succès', 'success');
             this.loadPage('students');
         }
@@ -283,14 +324,82 @@ class SchoolManagementApp {
         const student = this.students.find(s => s.id === studentId);
         if (!student) return;
 
-        alert(`Informations des parents de ${student.firstName} ${student.lastName}:\n\nNom: ${student.parentName}\nTéléphone: ${student.parentPhone}\nEmail: ${student.parentEmail || 'Non renseigné'}`);
+        const initials = `${student.firstName.charAt(0)}${student.lastName.charAt(0)}`.toUpperCase();
+        const html = `
+            <div class="text-center mb-4">
+                <div class="detail-avatar" style="background: var(--gradient-purple);">
+                    ${initials}
+                </div>
+                <h4 class="fw-bold">${student.firstName} ${student.lastName}</h4>
+                <p class="text-muted text-center">Contact Parents / Tuteurs</p>
+            </div>
+
+            <div class="detail-field">
+                <div class="detail-label"><i class="fas fa-user-friends me-1"></i>Nom du Parent</div>
+                <div class="detail-value">${student.parentName || 'Non renseigné'}</div>
+            </div>
+
+            <div class="detail-field">
+                <div class="detail-label"><i class="fas fa-phone me-1"></i>Téléphone</div>
+                <div class="detail-value">${student.parentPhone || 'Non renseigné'}</div>
+            </div>
+
+            <div class="detail-field">
+                <div class="detail-label"><i class="fas fa-envelope me-1"></i>Adresse Email</div>
+                <div class="detail-value">${student.parentEmail || 'Non renseigné'}</div>
+            </div>
+
+            <div class="detail-field">
+                <div class="detail-label"><i class="fas fa-map-marker-alt me-1"></i>Adresse Domicile</div>
+                <div class="detail-value">${student.address || 'Non renseignée'}</div>
+            </div>
+        `;
+
+        document.getElementById('detailsModalTitle').textContent = "Informations Parents";
+        document.getElementById('detailsModalBody').innerHTML = html;
+
+        const modal = new bootstrap.Modal(document.getElementById('detailsModal'));
+        modal.show();
     }
 
     viewStudentDetails(studentId) {
         const student = this.students.find(s => s.id === studentId);
         if (!student) return;
 
-        alert(`Détails de ${student.firstName} ${student.lastName}:\n\nDate de naissance: ${new Date(student.dateOfBirth).toLocaleDateString('fr-FR')}\nClasse: ${student.class || 'Non assigné'}\nAdresse: ${student.address || 'Non renseignée'}`);
+        const initials = `${student.firstName.charAt(0)}${student.lastName.charAt(0)}`.toUpperCase();
+        const birthFmt = new Date(student.dateOfBirth).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+        const isActive = student.isActive !== false;
+
+        const html = `
+            <div class="text-center mb-4">
+                <div class="detail-avatar" style="background: var(--gradient-primary);">
+                    ${initials}
+                </div>
+                <h4 class="fw-bold">${student.firstName} ${student.lastName}</h4>
+                <span class="badge bg-${isActive ? 'success' : 'danger'}">${isActive ? 'Actif' : 'Inactif'}</span>
+            </div>
+
+            <div class="detail-field">
+                <div class="detail-label"><i class="fas fa-birthday-cake me-1"></i>Date de naissance</div>
+                <div class="detail-value">${birthFmt}</div>
+            </div>
+
+            <div class="detail-field">
+                <div class="detail-label"><i class="fas fa-chalkboard me-1"></i>Classe</div>
+                <div class="detail-value">${student.class || 'Non assigné'}</div>
+            </div>
+
+            <div class="detail-field">
+                <div class="detail-label"><i class="fas fa-map-marker-alt me-1"></i>Adresse Domicile</div>
+                <div class="detail-value">${student.address || 'Non renseignée'}</div>
+            </div>
+        `;
+
+        document.getElementById('detailsModalTitle').textContent = "Détails de l'Élève";
+        document.getElementById('detailsModalBody').innerHTML = html;
+
+        const modal = new bootstrap.Modal(document.getElementById('detailsModal'));
+        modal.show();
     }
 
     exportStudents() {
@@ -403,6 +512,29 @@ class SchoolManagementApp {
                 notification.parentNode.removeChild(notification);
             }
         }, 5000);
+    }
+    logActivity(action, details, type = 'system') {
+        const activities = JSON.parse(localStorage.getItem('activities')) || this.getDefaultActivities();
+        const newActivity = {
+            id: Date.now(),
+            action,
+            details,
+            type, // 'add', 'edit', 'delete', 'system'
+            time: new Date().toISOString()
+        };
+        activities.unshift(newActivity);
+        
+        if (activities.length > 30) {
+            activities.pop();
+        }
+        localStorage.setItem('activities', JSON.stringify(activities));
+    }
+
+    getDefaultActivities() {
+        return [
+            { id: 1, action: "Démarrage de l'application", details: "L'application de gestion scolaire a été initialisée.", type: "system", time: new Date(Date.now() - 3600000).toISOString() },
+            { id: 2, action: "Génération des données", details: "Données de démonstration chargées.", type: "add", time: new Date(Date.now() - 7200000).toISOString() }
+        ];
     }
 }
 

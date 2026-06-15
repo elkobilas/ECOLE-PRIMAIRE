@@ -331,15 +331,44 @@ class TeachersModule {
             isActive: document.getElementById('teacherActive').checked
         };
 
+        // === VALIDATION DATE DE NAISSANCE ENSEIGNANT ===
+        if (teacherData.dateOfBirth) {
+            const teacherBirthDate = new Date(teacherData.dateOfBirth);
+            const todayDate = new Date();
+            if (teacherBirthDate >= todayDate) {
+                this.app.showNotification('⚠️ La date de naissance ne peut pas être dans le futur', 'warning');
+                return;
+            }
+            const teacherAge = todayDate.getFullYear() - teacherBirthDate.getFullYear() - 
+                ((todayDate.getMonth() < teacherBirthDate.getMonth() || 
+                 (todayDate.getMonth() === teacherBirthDate.getMonth() && todayDate.getDate() < teacherBirthDate.getDate())) ? 1 : 0);
+            if (teacherAge < 20 || teacherAge > 70) {
+                this.app.showNotification(`⚠️ L'âge de l'enseignant (${teacherAge} ans) n'est pas valide. L'enseignant doit avoir entre 20 et 70 ans.`, 'warning');
+                return;
+            }
+            // Vérifier que la date d'embauche est après les 18 ans
+            if (teacherData.hireDate) {
+                const hireDate = new Date(teacherData.hireDate);
+                const minHireDate = new Date(teacherBirthDate);
+                minHireDate.setFullYear(minHireDate.getFullYear() + 18);
+                if (hireDate < minHireDate) {
+                    this.app.showNotification('⚠️ La date d\'embauche doit être postérieure aux 18 ans de l\'enseignant', 'warning');
+                    return;
+                }
+            }
+        }
+
         if (this.currentTeacherId) {
             // Modification
             const index = this.app.teachers.findIndex(t => t.id === this.currentTeacherId);
             if (index !== -1) {
                 this.app.teachers[index] = teacherData;
+                this.app.logActivity(`Modification de l'enseignant ${teacherData.firstName} ${teacherData.lastName}`, `Qualif: ${teacherData.qualification}`, 'edit');
             }
         } else {
             // Ajout
             this.app.teachers.push(teacherData);
+            this.app.logActivity(`Recrutement de l'enseignant ${teacherData.firstName} ${teacherData.lastName}`, `Qualif: ${teacherData.qualification}`, 'add');
         }
 
         this.app.saveDataToStorage();
@@ -355,8 +384,11 @@ class TeachersModule {
 
     deleteTeacher(teacherId) {
         if (confirm('Êtes-vous sûr de vouloir supprimer cet enseignant ?')) {
+            const teacher = this.app.teachers.find(t => t.id === teacherId);
+            const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : `ID ${teacherId}`;
             this.app.teachers = this.app.teachers.filter(t => t.id !== teacherId);
             this.app.saveDataToStorage();
+            this.app.logActivity(`Suppression de l'enseignant ${teacherName}`, '', 'delete');
             this.app.showNotification('Enseignant supprimé avec succès', 'success');
             this.loadTeachersData();
         }
@@ -368,15 +400,55 @@ class TeachersModule {
 
         const classes = this.app.classes.filter(c => c.teacherId === teacherId);
         const classNames = classes.map(c => c.name).join(', ') || 'Aucune classe assignée';
+        const initials = `${teacher.firstName.charAt(0)}${teacher.lastName.charAt(0)}`.toUpperCase();
+        const hireFmt = teacher.hireDate ? new Date(teacher.hireDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : 'N/A';
+        const isActive = teacher.isActive !== false;
 
-        alert(`Détails de ${teacher.firstName} ${teacher.lastName}:\n\n` +
-            `Email: ${teacher.email}\n` +
-            `Téléphone: ${teacher.phone}\n` +
-            `Qualification: ${teacher.qualification}\n` +
-            `Date d'embauche: ${teacher.hireDate ? new Date(teacher.hireDate).toLocaleDateString('fr-FR') : 'N/A'}\n` +
-            `Adresse: ${teacher.address || 'Non renseignée'}\n` +
-            `Classes: ${classNames}\n` +
-            `Statut: ${teacher.isActive !== false ? 'Actif' : 'Inactif'}`);
+        const html = `
+            <div class="text-center mb-4">
+                <div class="detail-avatar" style="background: var(--gradient-success);">
+                    ${initials}
+                </div>
+                <h4 class="fw-bold">${teacher.firstName} ${teacher.lastName}</h4>
+                <span class="badge bg-${isActive ? 'success' : 'danger'}">${isActive ? 'Actif' : 'Inactif'}</span>
+            </div>
+
+            <div class="detail-field">
+                <div class="detail-label"><i class="fas fa-envelope me-1"></i>Adresse Email</div>
+                <div class="detail-value">${teacher.email || 'Non renseigné'}</div>
+            </div>
+
+            <div class="detail-field">
+                <div class="detail-label"><i class="fas fa-phone me-1"></i>Téléphone</div>
+                <div class="detail-value">${teacher.phone || 'Non renseigné'}</div>
+            </div>
+
+            <div class="detail-field">
+                <div class="detail-label"><i class="fas fa-graduation-cap me-1"></i>Qualification</div>
+                <div class="detail-value">${teacher.qualification || 'Non renseigné'}</div>
+            </div>
+
+            <div class="detail-field">
+                <div class="detail-label"><i class="fas fa-calendar-check me-1"></i>Date d'embauche</div>
+                <div class="detail-value">${hireFmt}</div>
+            </div>
+
+            <div class="detail-field">
+                <div class="detail-label"><i class="fas fa-chalkboard-teacher me-1"></i>Classes Assignées</div>
+                <div class="detail-value">${classNames}</div>
+            </div>
+
+            <div class="detail-field">
+                <div class="detail-label"><i class="fas fa-map-marker-alt me-1"></i>Adresse Domicile</div>
+                <div class="detail-value">${teacher.address || 'Non renseignée'}</div>
+            </div>
+        `;
+
+        document.getElementById('detailsModalTitle').textContent = "Détails de l'Enseignant";
+        document.getElementById('detailsModalBody').innerHTML = html;
+
+        const modal = new bootstrap.Modal(document.getElementById('detailsModal'));
+        modal.show();
     }
 
     exportTeachers() {

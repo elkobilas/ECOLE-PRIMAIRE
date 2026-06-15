@@ -228,7 +228,24 @@ class SignupManager {
     }
 
     validatePasswordStrength(password) {
-        return password.length >= 6;
+        // Le mot de passe doit contenir au moins 8 caractères, une majuscule, une minuscule et un chiffre
+        if (password.length < 8) {
+            this.showMessage('Le mot de passe doit contenir au moins 8 caractères', 'error');
+            return false;
+        }
+        if (!/[A-Z]/.test(password)) {
+            this.showMessage('Le mot de passe doit contenir au moins une lettre majuscule', 'error');
+            return false;
+        }
+        if (!/[a-z]/.test(password)) {
+            this.showMessage('Le mot de passe doit contenir au moins une lettre minuscule', 'error');
+            return false;
+        }
+        if (!/[0-9]/.test(password)) {
+            this.showMessage('Le mot de passe doit contenir au moins un chiffre', 'error');
+            return false;
+        }
+        return true;
     }
 
     validatePasswordMatch() {
@@ -264,7 +281,8 @@ class SignupManager {
             username: formData.username,
             email: formData.email,
             role: formData.role,
-            password: formData.password, // Dans une vraie app, ce serait hashé
+            password: formData.password, // Sécurité : en production, utiliser bcrypt côté serveur
+            passwordLastChanged: new Date().toISOString(),
             registrationDate: new Date().toISOString(),
             isActive: true
         };
